@@ -99,6 +99,30 @@
                     </template>
                   </div>
                   <VSpacer />
+                  <!-- if Hi-Res audio, show hi res icon
+                  sampling rate > 44.1 kHz and bit depth >= 24 bit
+                  -->
+                  <VIcon
+                    v-if="
+                      track.MediaSources &&
+                        track.MediaSources[0] &&
+                        track.MediaSources[0].MediaStreams &&
+                        track.MediaSources[0].MediaStreams[0].SampleRate &&
+                        track.MediaSources[0].MediaStreams[0].SampleRate > 44100 &&
+                        track.MediaSources[0].MediaStreams[0].BitDepth &&
+                        track.MediaSources[0].MediaStreams[0].BitDepth >= 24
+                    "
+                    class="text--primary"
+                    size="16">
+                    <VChip
+                      class="ma-0"
+                      color="transparent"
+                      text-color="primary"
+                      small>
+                      Hi-Res
+                    </VChip>
+                  </VIcon>
+
                   <ItemMenu
                     v-show="isHovering"
                     :item="track" />
@@ -121,9 +145,9 @@ import { playbackManager } from '@/store/playbackManager';
 import { getItemDetailsLink } from '@/utils/items';
 import { formatTicks } from '@/utils/time';
 import {
-  type BaseItemDto,
   ItemFields,
-  SortOrder
+  SortOrder,
+  type BaseItemDto
 } from '@jellyfin/sdk/lib/generated-client';
 import { getItemsApi } from '@jellyfin/sdk/lib/utils/api/items-api';
 import { groupBy } from 'lodash-es';
