@@ -10,11 +10,9 @@
       <VSpacer />
       <VFadeTransition>
         <PlayButton
-          v-if="!loading"
           :item="genre" />
       </VFadeTransition>
       <VBtn
-        v-if="!loading"
         class="play-button mr-2"
         min-width="8em"
         variant="outlined"
@@ -23,22 +21,10 @@
       </VBtn>
     </VAppBar>
     <VContainer class="after-second-toolbar">
-      <VRow v-if="loading">
-        <VCol
-          cols="12"
-          :class="useResponsiveClasses('card-grid-container')">
-          <SkeletonCard
-            v-for="n in 24"
-            :key="n"
-            text />
-        </VCol>
-      </VRow>
       <ItemGrid
         v-if="genres.length > 0"
-        :items="genres"
-        :loading="loading" />
+        :items="genres" />
       <VRow
-        v-else-if="!loading"
         justify="center">
         <VCol
           cols="12"
@@ -62,66 +48,43 @@
 </template>
 
 <script setup lang="ts">
-import { useResponsiveClasses } from '@/composables/use-responsive-classes';
-import { remote } from '@/plugins/remote';
-import { items } from '@/store/items';
 import {
-  type BaseItemDto,
-  type BaseItemKind,
-  ItemFields,
-  SortOrder
+  SortOrder,
+  type BaseItemKind
 } from '@jellyfin/sdk/lib/generated-client';
 import { getItemsApi } from '@jellyfin/sdk/lib/utils/api/items-api';
 import { getUserLibraryApi } from '@jellyfin/sdk/lib/utils/api/user-library-api';
-import { onMounted, ref } from 'vue';
+import { computed } from 'vue';
 import { useRoute } from 'vue-router/auto';
+import { isStr } from '@/utils/validation';
+import { useResponsiveClasses } from '@/composables/use-responsive-classes';
+import { useBaseItem } from '@/composables/apis';
 
 const route = useRoute<'/genre/[itemId]'>();
 
-const loading = ref(false);
-const genre = ref<BaseItemDto>({});
-const genres = ref<BaseItemDto[]>([]);
+const { itemId } = route.params;
 
-onMounted(async () => {
-  const { itemId } = route.params;
+const includeItemTypes = computed<BaseItemKind[]>(() => {
   const typesQuery = route.query.type as BaseItemKind ?? [];
 
-  const includeItemTypes: BaseItemKind[] = typeof typesQuery === 'string'
+  return isStr(typesQuery)
     ? [typesQuery]
     : typesQuery;
-
-  loading.value = true;
-
-  try {
-    genre.value = (
-      await remote.sdk.newUserApi(getUserLibraryApi).getItem({
-        userId: remote.auth.currentUserId ?? '',
-        itemId
-      })
-    ).data;
-
-    route.meta.title = genre.value.Name;
-
-    genres.value =
-      (
-        await remote.sdk.newUserApi(getItemsApi).getItems({
-          genreIds: [itemId],
-          includeItemTypes: includeItemTypes,
-          recursive: true,
-          sortBy: ['SortName'],
-          sortOrder: [SortOrder.Ascending],
-          fields: Object.values(ItemFields),
-          userId: remote.auth.currentUserId ?? ''
-        })
-      ).data.Items ?? [];
-
-    genres.value = items.addCollection(genre.value, genres.value);
-  } catch (error) {
-    console.error(error);
-  } finally {
-    loading.value = false;
-  }
 });
+
+const { data: genre } = await useBaseItem(getUserLibraryApi, 'getItem')(() => ({
+  itemId
+}));
+
+const { data: genres } = await useBaseItem(getItemsApi, 'getItems')(() => ({
+  genreIds: [itemId],
+  includeItemTypes: includeItemTypes.value,
+  recursive: true,
+  sortBy: ['SortName'],
+  sortOrder: [SortOrder.Ascending]
+}));
+
+route.meta.title = genre.value.Name;
 </script>
 
 <style lang="scss" scoped>

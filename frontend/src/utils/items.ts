@@ -1,18 +1,17 @@
 /**
  * Item and playback helpers
  */
-import { remote } from '@/plugins/remote';
-import { router } from '@/plugins/router';
 import {
-  type BaseItemDto,
   BaseItemKind,
-  type BaseItemPerson,
   ItemFields,
+  type BaseItemDto,
+  type BaseItemPerson,
   type MediaStream
 } from '@jellyfin/sdk/lib/generated-client';
 import { getItemsApi } from '@jellyfin/sdk/lib/utils/api/items-api';
 import { getTvShowsApi } from '@jellyfin/sdk/lib/utils/api/tv-shows-api';
-import { isNil } from 'lodash-es';
+import { getUserLibraryApi } from '@jellyfin/sdk/lib/utils/api/user-library-api';
+import { getUserViewsApi } from '@jellyfin/sdk/lib/utils/api/user-views-api';
 import IMdiAccount from 'virtual:icons/mdi/account';
 import IMdiAlbum from 'virtual:icons/mdi/album';
 import IMdiBookMusic from 'virtual:icons/mdi/book-music';
@@ -30,8 +29,13 @@ import IMdiPlaylistPlay from 'virtual:icons/mdi/playlist-play';
 import IMdiTelevisionClassic from 'virtual:icons/mdi/television-classic';
 import IMdiYoutube from 'virtual:icons/mdi/youtube';
 import IMdiYoutubeTV from 'virtual:icons/mdi/youtube-tv';
+import { effectScope, watch, type ComputedRef } from 'vue';
 import type { RouteNamedMap } from 'vue-router/auto/routes';
 import { ticksToMs } from './time';
+import { isNil } from '@/utils/validation';
+import { router } from '@/plugins/router';
+import { remote } from '@/plugins/remote';
+import { useBaseItem } from '@/composables/apis';
 
 /**
  * A list of valid collections that should be treated as folders.
@@ -61,6 +65,12 @@ export enum CardShapes {
   Square = 'square-card',
   Banner = 'banner-card'
 }
+
+/**
+ * This sortOrder is commonly used across many requests. Define it here so it can be
+ * used in multiple places without repeating the same code.
+ */
+export const defaultSortOrder = ['PremiereDate', 'ProductionYear', 'SortName'];
 
 /**
  * Determines if the item is a person
@@ -562,4 +572,82 @@ export function formatFileSize(size: number): string {
  */
 export function formatBitRate(bitrate: number): string {
   return `${(bitrate / 1000).toFixed(2)} kbps`;
+}
+
+/**
+ * Resolves when the websocket is ready and connected
+ */
+export async function ensureWebSocket(): Promise<void> {
+  const scope = effectScope();
+
+  await new Promise<void>((resolve) => {
+    scope.run(() => {
+      watch(remote.socket.isConnected, () => {
+        if (remote.socket.isConnected.value) {
+          resolve();
+        }
+      }, { immediate: true, flush: 'sync' });
+    });
+  });
+  scope.stop();
+}
+
+
+/**
+ * Gets all the items that need to be resolved to populate the interface
+ */
+interface IndexPageQueries {
+  views: ComputedRef<BaseItemDto[]>;
+  resumeVideo: ComputedRef<BaseItemDto[]>;
+  carousel: ComputedRef<BaseItemDto[]>;
+  nextUp: ComputedRef<BaseItemDto[]>;
+  latestPerLibrary: Map<BaseItemDto['Id'], ComputedRef<BaseItemDto[]>>;
+}
+
+/**
+ * Fetches all the items that are needed to populate the default layout
+ * (like libraries, which are necessary for the drawer).
+ *
+ * This is here so this function can be invoked from the login page as well,
+ * so when it resolves all the content is already loaded without further delay.
+ */
+export async function fetchIndexPage(): Promise<IndexPageQueries> {
+  const latestPerLibrary = new Map<BaseItemDto['Id'], ComputedRef<BaseItemDto[]>>();
+
+  /**
+   * Since this method can be called when loading the client, we need to make sure
+   * the socket is ready so useBaseItem are resolved successfully.
+   */
+  await ensureWebSocket();
+
+  const { data: views } = await useBaseItem(getUserViewsApi, 'getUserViews')(() => ({}));
+
+  const latestFromLibrary = async (): Promise<void> => {
+    for (const view of views.value) {
+      const { data } = await useBaseItem(getUserLibraryApi, 'getLatestMedia')(() => ({
+        parentId: view.Id
+      }));
+
+      latestPerLibrary.set(view.Id, data);
+    }
+  };
+
+  const promises = [
+    useBaseItem(getItemsApi, 'getResumeItems')(() => ({
+      mediaTypes: ['Video']
+    })),
+    useBaseItem(getUserLibraryApi, 'getLatestMedia')(() => ({})),
+    useBaseItem(getTvShowsApi, 'getNextUp')(() => ({})),
+    latestFromLibrary()
+  ];
+
+  const results = (await Promise.all(promises)).filter((r): r is Exclude<typeof r, void> => r !== undefined);
+
+  return {
+    views,
+    resumeVideo: results[0].data,
+    carousel: results[1].data,
+    nextUp: results[2].data,
+    latestPerLibrary
+  };
 }

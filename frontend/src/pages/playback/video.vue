@@ -1,7 +1,7 @@
 <template>
   <VMain
     class="fullscreen-video-container fill-height"
-    :class="{ 'cursor-none': !overlay }"
+    :class="{ 'no-cursor': !overlay }"
     @mousemove="handleMouseMove"
     @touchend="handleMouseMove">
     <VOverlay
@@ -125,13 +125,6 @@ meta:
 </route>
 
 <script setup lang="ts">
-import {
-  mediaControls,
-  mediaElementRef
-} from '@/store';
-import { playbackManager } from '@/store/playbackManager';
-import { playerElement } from '@/store/playerElement';
-import { getEndsAtTime } from '@/utils/time';
 import { BaseItemKind } from '@jellyfin/sdk/lib/generated-client';
 import {
   useFullscreen,
@@ -142,6 +135,18 @@ import {
 import IMdiChevronDown from 'virtual:icons/mdi/chevron-down';
 import IMdiClose from 'virtual:icons/mdi/close';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { playbackGuard } from '@/plugins/router/middlewares/playback';
+import {
+  mediaControls,
+  mediaElementRef
+} from '@/store';
+import { playbackManager } from '@/store/playbackManager';
+import { playerElement } from '@/store/playerElement';
+import { getEndsAtTime } from '@/utils/time';
+
+defineOptions({
+  beforeRouteEnter: playbackGuard
+});
 
 /**
  * - iOS's Safari fullscreen API is only available for the video element

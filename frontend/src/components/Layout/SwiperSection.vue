@@ -2,9 +2,6 @@
   <div
     :class="`swiper-section-${uuid}`"
     style="width: 100%">
-    <SkeletonHomeSection
-      v-if="loading"
-      :card-shape="shape" />
     <VCol
       v-show="items && items.length > 0"
       class="swiper-section">
@@ -62,7 +59,6 @@
 </template>
 
 <script setup lang="ts">
-import { CardShapes, getShapeFromItemType } from '@/utils/items';
 import type { BaseItemDto } from '@jellyfin/sdk/lib/generated-client';
 import 'swiper/css';
 import 'swiper/css/a11y';
@@ -73,15 +69,15 @@ import { Swiper, SwiperSlide } from 'swiper/vue';
 import { v4 } from 'uuid';
 import { ref } from 'vue';
 import { useDisplay, useTheme } from 'vuetify';
+import { CardShapes, getShapeFromItemType } from '@/utils/items';
 
 const props = withDefaults(
   defineProps<{
-    loading?: boolean;
     title: string;
     items: BaseItemDto[];
     shape?: CardShapes;
   }>(),
-  { loading: false, shape: undefined }
+  { shape: undefined }
 );
 const display = useDisplay();
 const theme = useTheme();

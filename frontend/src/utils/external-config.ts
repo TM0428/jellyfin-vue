@@ -1,4 +1,4 @@
-import { isNil } from 'lodash-es';
+import { isArray, isNil, isObj, isStr } from '@/utils/validation';
 
 interface ExternalJSONConfig {
   defaultServerURLs: string[];
@@ -13,20 +13,20 @@ let externalConfig: ExternalJSONConfig | undefined;
 function validateJsonConfig(
   config: unknown
 ): asserts config is ExternalJSONConfig {
-  if (typeof config !== 'object' || !config) {
+  if (!isObj(config)) {
     throw new Error('Expected not null or defined config');
   }
 
   if (
     !('defaultServerURLs' in config) ||
-    !Array.isArray(config.defaultServerURLs)
+    !isArray(config.defaultServerURLs)
   ) {
     throw new Error('Expected defaultServerURLS array');
   }
 
   if (
     config.defaultServerURLs.some(
-      (defaultServerURL) => typeof defaultServerURL !== 'string'
+      (defaultServerURL) => !isStr(defaultServerURL)
     )
   ) {
     throw new Error('Expected defaultServerURLs to be a list of strings');
@@ -34,8 +34,8 @@ function validateJsonConfig(
 
   if (
     !('routerMode' in config) ||
-    typeof config.routerMode !== 'string' ||
-      !['hash', 'history'].includes(config.routerMode)
+    !isStr(config.routerMode) ||
+    !['hash', 'history'].includes(config.routerMode)
   ) {
     throw new Error('Expected router mode to be either hash or history');
   }

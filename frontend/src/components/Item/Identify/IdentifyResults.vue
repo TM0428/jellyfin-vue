@@ -12,7 +12,7 @@
         <VTooltip location="top">
           {{ item.Name }}
         </VTooltip>
-        <VHover v-slot="{ isHovering, props: hoverProps }">
+        <JHover v-slot="{ isHovering, hoverProps }">
           <VImg
             :src="item.ImageUrl ?? undefined"
             v-bind="hoverProps"
@@ -41,7 +41,7 @@
               </VCardSubtitle>
             </VFadeTransition>
           </VImg>
-        </VHover>
+        </JHover>
       </VCard>
     </VCol>
   </VRow>

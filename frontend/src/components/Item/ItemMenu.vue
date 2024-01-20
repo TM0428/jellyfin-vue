@@ -54,23 +54,7 @@
 </template>
 
 <script lang="ts">
-import { useConfirmDialog } from '@/composables/use-confirm-dialog';
-import { useSnackbar } from '@/composables/use-snackbar';
-import { remote } from '@/plugins/remote';
-import { playbackManager } from '@/store/playbackManager';
-import { taskManager } from '@/store/taskManager';
-import {
-  canIdentify,
-  canInstantMix,
-  canRefreshMetadata,
-  canResume,
-  getItemDownloadUrl,
-  getItemIdFromSourceIndex,
-  getItemSeasonDownloadMap,
-  getItemSeriesDownloadMap
-} from '@/utils/items';
 import type { BaseItemDto } from '@jellyfin/sdk/lib/generated-client';
-import { getLibraryApi } from '@jellyfin/sdk/lib/utils/api/library-api';
 import { useClipboard, useEventListener } from '@vueuse/core';
 import { v4 } from 'uuid';
 import IMdiArrowExpandDown from 'virtual:icons/mdi/arrow-expand-down';
@@ -90,6 +74,23 @@ import IMdiShuffle from 'virtual:icons/mdi/shuffle';
 import { computed, getCurrentInstance, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router/auto';
+import { isStr } from '@/utils/validation';
+import {
+  canIdentify,
+  canInstantMix,
+  canRefreshMetadata,
+  canResume,
+  getItemDownloadUrl,
+  getItemIdFromSourceIndex,
+  getItemSeasonDownloadMap,
+  getItemSeriesDownloadMap
+} from '@/utils/items';
+import { taskManager } from '@/store/taskManager';
+import { playbackManager } from '@/store/playbackManager';
+import { apiStore } from '@/store/api';
+import { remote } from '@/plugins/remote';
+import { useSnackbar } from '@/composables/use-snackbar';
+import { useConfirmDialog } from '@/composables/use-confirm-dialog';
 
 type MenuOption = {
   title: string;
@@ -289,9 +290,7 @@ const deleteItemAction = {
         }
 
         try {
-          await remote.sdk.newUserApi(getLibraryApi).deleteItem({
-            itemId: itemId.value
-          });
+          await apiStore.itemDelete(itemId.value);
 
           if (itemId.value === menuProps.item.Id && route.fullPath.includes(itemId.value)) {
             await router.replace('/');
@@ -363,7 +362,7 @@ const copyDownloadURLAction = {
       };
 
       if (text) {
-        await (typeof streamUrls === 'string'
+        await (isStr(streamUrls)
           ? copyAction(text)
           : useConfirmDialog(async () => await copyAction(text), {
             title: t('copyPrompt'),

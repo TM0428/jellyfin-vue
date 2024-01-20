@@ -272,10 +272,10 @@
         <VCol
           v-if="item.Type === 'BoxSet'"
           cols="12">
-          <CollectionTabs :item="item" />
+          <CollectionTabs :items="childItems" />
         </VCol>
         <VCol cols="12">
-          <RelatedItems :item="item" />
+          <RelatedItems :related-items="relatedItems" />
         </VCol>
       </VRow>
     </template>
@@ -297,52 +297,55 @@
 </template>
 
 <script setup lang="ts">
-import { remote } from '@/plugins/remote';
-import { getItemizedSelect } from '@/utils/forms';
-import { sanitizeHtml } from '@/utils/html';
-import { getBlurhash } from '@/utils/images';
-import { getItemDetailsLink, getMediaStreams } from '@/utils/items';
 import {
-  type BaseItemPerson,
   ImageType,
+  type BaseItemPerson,
   type MediaSourceInfo
 } from '@jellyfin/sdk/lib/generated-client';
+import { getItemsApi } from '@jellyfin/sdk/lib/utils/api/items-api';
+import { getLibraryApi } from '@jellyfin/sdk/lib/utils/api/library-api';
 import { getUserLibraryApi } from '@jellyfin/sdk/lib/utils/api/user-library-api';
 import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router/auto';
+import { getItemDetailsLink, getMediaStreams } from '@/utils/items';
+import { getBlurhash } from '@/utils/images';
+import { sanitizeHtml } from '@/utils/html';
+import { getItemizedSelect } from '@/utils/forms';
+import { useBaseItem } from '@/composables/apis';
 
 const route = useRoute<'/genre/[itemId]'>();
 
-const { itemId } = route.params;
-
-const libraryApi = remote.sdk.newUserApi(getUserLibraryApi);
-
-const item = (
-  await libraryApi.getItem({
-    userId: remote.auth.currentUserId ?? '',
-    itemId
+const { data: item } = await useBaseItem(getUserLibraryApi, 'getItem')(() => ({
+  itemId: route.params.itemId
+}));
+const { data: relatedItems } = await useBaseItem(getLibraryApi, 'getSimilarItems')(() => ({
+  itemId: route.params.itemId,
+  limit: 12
+}));
+const { data: currentSeries } = await useBaseItem(getUserLibraryApi, 'getItem')(
+  () => ({
+    itemId: item.value.SeriesId ?? ''
   })
-).data;
+);
+const { data: childItems } = await useBaseItem(getItemsApi, 'getItems')(
+  () => ({
+    parentId: item.value.Id
+  })
+);
 
-
-const currentSeries = item.SeriesId ? (await libraryApi.getItem({
-  userId: remote.auth.currentUserId ?? '',
-  itemId: item.SeriesId
-})).data : undefined;
-
-const currentSource = ref<MediaSourceInfo>({});
+const selectedSource = ref<MediaSourceInfo>();
 const currentVideoTrack = ref<number>();
 const currentAudioTrack = ref<number>();
 const currentSubtitleTrack = ref<number>();
 
 const crew = computed<BaseItemPerson[]>(() =>
-  (item.People ?? []).filter((person) =>
+  (item.value.People ?? []).filter((person) =>
     ['Director', 'Writer'].includes(person?.Type ?? '')
   )
 );
 
 const actors = computed<BaseItemPerson[]>(() =>
-  (item.People ?? []).filter((person) => person.Type === 'Actor').slice(0, 10)
+  (item.value.People ?? []).filter((person) => person.Type === 'Actor').slice(0, 10)
 );
 
 const directors = computed<BaseItemPerson[]>(() =>
@@ -354,17 +357,22 @@ const writers = computed<BaseItemPerson[]>(() =>
 );
 
 const selectSources = computed(() =>
-  getItemizedSelect(item.MediaSources ?? [])
+  getItemizedSelect(item.value.MediaSources ?? [])
 );
 
 const currentSourceIndex = computed(() =>
   selectSources.value.findIndex((el) => el.value.Id === currentSource.value.Id)
 );
 
-route.meta.title = item.Name;
-route.meta.backdrop.blurhash = getBlurhash(item, ImageType.Backdrop);
+const currentSource = computed({
+  get() {
+    return selectedSource.value ?? item.value?.MediaSources?.[0] ?? {};
+  },
+  set(newValue) {
+    selectedSource.value = newValue;
+  }
+});
 
-if (item.MediaSources && item.MediaSources.length > 0) {
-  currentSource.value = item.MediaSources[0];
-}
+route.meta.title = item.value.Name;
+route.meta.backdrop.blurhash = getBlurhash(item.value, ImageType.Backdrop);
 </script>

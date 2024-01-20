@@ -54,7 +54,7 @@
             <VBtn
               class="bg-primary-darken-2"
               variant="flat"
-              @click="playbackManager.setNextTrack">
+              @click="playbackManager.setNextItem">
               {{ $t('startNow') }}
             </VBtn>
             <VBtn @click="isHiddenByUser = true">
@@ -68,9 +68,9 @@
 </template>
 
 <script setup lang="ts">
+import { computed, ref, watch } from 'vue';
 import { playbackManager } from '@/store/playbackManager';
 import { getEndsAtTime, getRuntimeTime } from '@/utils/time';
-import { computed, ref, watch } from 'vue';
 
 const emit = defineEmits<{
   change: [isVisible: boolean];

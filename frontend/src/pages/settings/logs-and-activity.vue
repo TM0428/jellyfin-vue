@@ -92,11 +92,7 @@ meta:
 </route>
 
 <script setup lang="ts">
-import { useDateFns } from '@/composables/use-datefns';
-import { remote } from '@/plugins/remote';
 import {
-  type ActivityLogEntry,
-  type LogFile,
   LogLevel
 } from '@jellyfin/sdk/lib/generated-client';
 import { getActivityLogApi } from '@jellyfin/sdk/lib/utils/api/activity-log-api';
@@ -108,19 +104,18 @@ import IMdiLogin from 'virtual:icons/mdi/login';
 import IMdiLogout from 'virtual:icons/mdi/logout';
 import IMdiPlay from 'virtual:icons/mdi/play';
 import IMdiStop from 'virtual:icons/mdi/stop';
-import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router/auto';
 import { useTheme } from 'vuetify';
+import { remote } from '@/plugins/remote';
+import { useDateFns } from '@/composables/use-datefns';
+import { useApi } from '@/composables/apis';
 
 const { t } = useI18n();
 const route = useRoute();
 const theme = useTheme();
 
 route.meta.title = t('logsAndActivity');
-
-const logs = ref<LogFile[]>([]);
-const activityList = ref<ActivityLogEntry[]>([]);
 
 /**
  * Return a UI colour given log severity
@@ -203,39 +198,6 @@ function getLogFileLink(name: string): string | undefined {
     `${remote.sdk.api?.basePath}/System/Logs/Log?name=${name}&api_key=${remote.auth.currentUserToken}` : undefined;
 }
 
-/**
- * Fetches logs
- */
-async function fetchLogs(): Promise<void> {
-  try {
-    logs.value = (
-      await remote.sdk.newUserApi(getSystemApi).getServerLogs()
-    ).data;
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-/**
- * Fetches activities
- */
-async function fetchActivity(): Promise<void> {
-  const minDate = new Date();
-
-  minDate.setDate(minDate.getDate() - 7);
-
-  try {
-    activityList.value =
-      (
-        await remote.sdk
-          .newUserApi(getActivityLogApi)
-          .getLogEntries({ minDate: minDate.toISOString() })
-      ).data.Items ?? [];
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-await fetchLogs();
-await fetchActivity();
+const { data: logs } = await useApi(getSystemApi, 'getServerLogs')();
+const { data: activityList } = await useApi(getActivityLogApi, 'getLogEntries')();
 </script>

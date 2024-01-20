@@ -47,7 +47,7 @@
         <template
           v-for="track in tracksOnDisc"
           :key="track.Id">
-          <VHover v-slot="{ isHovering, props: hoverProps }">
+          <JHover v-slot="{ isHovering, hoverProps }">
             <tr
               :class="{ 'text-primary': isPlaying(track) }"
               v-bind="hoverProps"
@@ -132,7 +132,7 @@
                 {{ formatTicks(track.RunTimeTicks || 0) }}
               </td>
             </tr>
-          </VHover>
+          </JHover>
         </template>
       </template>
     </tbody>
@@ -140,42 +140,27 @@
 </template>
 
 <script setup lang="ts">
-import { remote } from '@/plugins/remote';
-import { playbackManager } from '@/store/playbackManager';
-import { getItemDetailsLink } from '@/utils/items';
-import { formatTicks } from '@/utils/time';
 import {
-  ItemFields,
   SortOrder,
   type BaseItemDto
 } from '@jellyfin/sdk/lib/generated-client';
 import { getItemsApi } from '@jellyfin/sdk/lib/utils/api/items-api';
 import { groupBy } from 'lodash-es';
-import { computed, ref, watch } from 'vue';
+import { computed } from 'vue';
+import { useBaseItem } from '@/composables/apis';
+import { playbackManager } from '@/store/playbackManager';
+import { getItemDetailsLink } from '@/utils/items';
+import { formatTicks } from '@/utils/time';
 
-const props = defineProps<{ item: BaseItemDto }>();
+const props = defineProps<{
+  item: BaseItemDto
+}>();
 
-const tracks = ref<BaseItemDto[] | null | undefined>();
-
-/**
- * Fetch component data
- */
-async function fetch(): Promise<void> {
-  tracks.value = (
-    await remote.sdk.newUserApi(getItemsApi).getItems({
-      userId: remote.auth.currentUserId ?? '',
-      parentId: props.item.Id,
-      sortBy: ['SortName'],
-      sortOrder: [SortOrder.Ascending],
-      fields: [ItemFields.MediaSources]
-    })
-  ).data.Items;
-}
-
-await fetch();
-watch(props, async () => {
-  await fetch();
-});
+const { data: tracks } = await useBaseItem(getItemsApi, 'getItems')(() => ({
+  parentId: props.item.Id,
+  sortBy: ['SortName'],
+  sortOrder: [SortOrder.Ascending]
+}));
 
 const tracksPerDisc = computed(() => {
   return groupBy(tracks.value, 'ParentIndexNumber');

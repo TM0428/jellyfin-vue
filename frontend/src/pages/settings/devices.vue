@@ -96,14 +96,14 @@ meta:
 </route>
 
 <script setup lang="ts">
-import { useDateFns } from '@/composables/use-datefns';
-import { useSnackbar } from '@/composables/use-snackbar';
-import { remote } from '@/plugins/remote';
 import type { DeviceInfo } from '@jellyfin/sdk/lib/generated-client';
 import { getDevicesApi } from '@jellyfin/sdk/lib/utils/api/devices-api';
 import { formatRelative, parseJSON } from 'date-fns';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { remote } from '@/plugins/remote';
+import { useSnackbar } from '@/composables/use-snackbar';
+import { useDateFns } from '@/composables/use-datefns';
 
 const { t } = useI18n();
 
@@ -137,13 +137,11 @@ async function deleteAllDevices(): Promise<void> {
 
   try {
     for (const device of devices.value) {
-      if (!device.Id || remote.sdk.deviceInfo.id === device.Id) {
-        continue;
+      if (device.Id || remote.sdk.deviceInfo.id === device.Id) {
+        await remote.sdk
+          .newUserApi(getDevicesApi)
+          .deleteDevice({ id: device.Id });
       }
-
-      await remote.sdk
-        .newUserApi(getDevicesApi)
-        .deleteDevice({ id: device.Id });
     }
 
     useSnackbar(t('deleteAllDevicesSuccess'), 'success');

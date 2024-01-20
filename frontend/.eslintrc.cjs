@@ -7,7 +7,8 @@ const commonTSAndVueConfig = {
     // TODO: Investigate why this rule reports false positives
     '@typescript-eslint/no-misused-promises': 'off',
     'no-secrets/no-secrets': 'error',
-    '@typescript-eslint/consistent-type-exports': 'error'
+    '@typescript-eslint/consistent-type-exports': 'error',
+    '@typescript-eslint/no-redundant-type-constituents': 'off'
   }
 };
 
@@ -29,13 +30,13 @@ module.exports = {
     'plugin:optimize-regex/recommended',
     'plugin:@typescript-eslint/recommended',
     'plugin:promise/recommended',
-    'plugin:import/recommended',
+    'plugin:import/errors',
     'plugin:import/typescript',
     'plugin:vue/vue3-recommended',
     'plugin:sonarjs/recommended',
     'plugin:css/recommended',
     'plugin:unicorn/recommended',
-    'plugin:you-dont-need-lodash-underscore/compatible',
+    'plugin:you-dont-need-lodash-underscore/all',
     'plugin:@intlify/vue-i18n/recommended',
     'plugin:vue-scoped-css/vue3-recommended',
     'plugin:@stylistic/disable-legacy'
@@ -145,8 +146,10 @@ module.exports = {
         bundledDependencies: false
       }
     ],
+    'import/order': 'error',
+    'import/no-cycle': 'error',
     'import/no-nodejs-modules': 'error',
-    'import/no-duplicates': ['error', {'prefer-inline': true}],
+    'import/no-duplicates': ['error', { 'prefer-inline' : true }],
     'jsdoc/require-hyphen-before-param-description': 'error',
     'jsdoc/require-description': 'error',
     'jsdoc/no-types': 'error',
@@ -174,7 +177,6 @@ module.exports = {
       'fixStyle': 'inline-type-imports'
     }],
     'prefer-arrow-callback': 'error',
-    'you-dont-need-lodash-underscore/is-nil': 'off',
     // Force some component order stuff, formatting and such, for consistency
     'curly': ['error', 'all'],
     'unicorn/filename-case': 'off',
@@ -235,6 +237,17 @@ module.exports = {
         'jsonc/auto': 'error'
       }
     },
+    /**
+     * See the following:
+     * - https://en.wikipedia.org/wiki/History_of_sentence_spacing#French_and_English_spacing
+     * - https://docs.weblate.org/en/weblate-4.14.1/user/checks.html#check-punctuation-spacing
+     */
+    {
+      files: ['locales/fr.json'],
+      rules: {
+        'no-irregular-whitespace': 'off'
+      }
+    },
     {
       files: ['*.ts', '*.tsx'],
       parser: 'typescript-eslint-parser-for-extra-files',
@@ -252,10 +265,7 @@ module.exports = {
       parserOptions: {
         parser: 'typescript-eslint-parser-for-extra-files',
         project: 'tsconfig.json',
-        sourceType: 'module',
-        vueFeatures: {
-          customMacros: ['defineModel']
-        }
+        sourceType: 'module'
       },
       ...commonTSAndVueConfig
     },
@@ -296,12 +306,12 @@ module.exports = {
     },
     'vue-i18n': {
       /**
-       * We just want to do linting for en-US, weblate already handles removing unused and duplicated keys
-       * in other locales based on en-US translations!
+       * We just want to do linting for en, weblate already handles removing unused and duplicated keys
+       * in other locales based on en translations!
        *
        * This also allows us to speed up linting
        */
-      localeDir: 'locales/en-US.json',
+      localeDir: 'locales/en.json',
       messageSyntaxVersion: '^9.0.0'
     }
   }

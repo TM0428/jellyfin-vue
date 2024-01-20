@@ -61,7 +61,7 @@
           </VCheckbox>
           <VDivider />
           <IdentifyResults
-            v-if="Array.isArray(searchResults) && searchResults.length > 0"
+            v-if="isArray(searchResults) && searchResults.length > 0"
             :items="searchResults"
             :item-type="item.Type"
             @select="applySelectedSearch" />
@@ -89,9 +89,6 @@
 </template>
 
 <script setup lang="ts">
-import { useConfirmDialog } from '@/composables/use-confirm-dialog';
-import { useSnackbar } from '@/composables/use-snackbar';
-import { remote } from '@/plugins/remote';
 import type {
   BaseItemDto,
   RemoteSearchResult
@@ -99,6 +96,10 @@ import type {
 import { getItemLookupApi } from '@jellyfin/sdk/lib/utils/api/item-lookup-api';
 import { computed, ref, toRaw } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useConfirmDialog } from '@/composables/use-confirm-dialog';
+import { useSnackbar } from '@/composables/use-snackbar';
+import { remote } from '@/plugins/remote';
+import { isArray, isStr } from '@/utils/validation';
 
 interface IdentifyField {
   key: string;
@@ -256,7 +257,7 @@ async function getItemRemoteSearch(
    */
   for (const field of fields) {
     const value =
-      typeof field.value === 'string' ? field.value.trim() : field.value;
+      isStr(field.value) ? field.value.trim() : field.value;
 
     if (field.key === 'search-name' && value) {
       searchQuery.Name = value;
@@ -370,7 +371,7 @@ async function performSearch(): Promise<void> {
   try {
     const results = await getItemRemoteSearch(props.item, fieldsInputs.value);
 
-    searchResults.value = Array.isArray(results) ? results : [];
+    searchResults.value = isArray(results) ? results : [];
   } catch (error) {
     console.error(error);
 

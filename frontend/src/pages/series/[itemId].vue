@@ -174,29 +174,35 @@
         <PeopleList :items="actors" />
       </div>
       <RelatedItems
-        :item="item"
+        :related-items="relatedItems"
         vertical />
     </template>
   </ItemCols>
 </template>
 
 <script setup lang="ts">
-import { remote } from '@/plugins/remote';
-import { sanitizeHtml } from '@/utils/html';
-import { getBlurhash } from '@/utils/images';
-import { getItemDetailsLink } from '@/utils/items';
 import {
-  type BaseItemDto,
-  type BaseItemPerson,
-  ImageType
+  ImageType,
+  type BaseItemPerson
 } from '@jellyfin/sdk/lib/generated-client';
+import { getLibraryApi } from '@jellyfin/sdk/lib/utils/api/library-api';
 import { getUserLibraryApi } from '@jellyfin/sdk/lib/utils/api/user-library-api';
-import { computed, onMounted, ref } from 'vue';
+import { computed } from 'vue';
 import { useRoute } from 'vue-router/auto';
+import { getItemDetailsLink } from '@/utils/items';
+import { getBlurhash } from '@/utils/images';
+import { sanitizeHtml } from '@/utils/html';
+import { useBaseItem } from '@/composables/apis';
 
 const route = useRoute<'/series/[itemId]'>();
 
-const item = ref<BaseItemDto>({});
+const { data: item } = await useBaseItem(getUserLibraryApi, 'getItem')(() => ({
+  itemId: route.params.itemId
+}));
+const { data: relatedItems } = await useBaseItem(getLibraryApi, 'getSimilarItems')(() => ({
+  itemId: route.params.itemId,
+  limit: 5
+}));
 
 const crew = computed<BaseItemPerson[]>(() =>
   (item.value.People ?? []).filter((person) =>
@@ -218,17 +224,6 @@ const writers = computed(() =>
   crew.value.filter((person) => person.Type === 'Writer')
 );
 
-onMounted(async () => {
-  const { itemId } = route.params;
-
-  item.value = (
-    await remote.sdk.newUserApi(getUserLibraryApi).getItem({
-      userId: remote.auth.currentUserId ?? '',
-      itemId
-    })
-  ).data;
-
-  route.meta.title = item.value.Name;
-  route.meta.backdrop.blurhash = getBlurhash(item.value, ImageType.Backdrop);
-});
+route.meta.title = item.value.Name;
+route.meta.backdrop.blurhash = getBlurhash(item.value, ImageType.Backdrop);
 </script>

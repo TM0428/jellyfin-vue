@@ -42,7 +42,11 @@ export default defineConfig(({ mode }): UserConfig => {
           VueUseComponentsResolver(),
           Vuetify3Resolver(),
           VueUseDirectiveResolver()
-        ]
+        ],
+        types: [{
+          from: 'vue-router/auto',
+          names: ['RouterLink', 'RouterView']
+        }]
       }),
       /**
        * This plugin allows to use all icons from Iconify as vue components
@@ -64,6 +68,10 @@ export default defineConfig(({ mode }): UserConfig => {
        * See main.ts for an explanation of this target
        */
       target: 'es2022',
+      /**
+       * Disable chunk size warnings
+       */
+      chunkSizeWarningLimit: Number.NaN,
       cssCodeSplit: false,
       cssMinify: 'lightningcss',
       modulePreload: false,
@@ -75,34 +83,37 @@ export default defineConfig(({ mode }): UserConfig => {
           index: entrypoints.index
         },
         output: {
+          chunkFileNames: (chunkInfo) => {
+            /**
+             * This is the default value: https://rollupjs.org/configuration-options/#output-chunkfilenames
+             */
+            return chunkInfo.name === 'index' ? 'shared-[hash].js': '[name]-[hash].js';
+          },
           validate: true,
           plugins: [
             mode === 'analyze'
               ?
               visualizer({
                 open: true,
-                filename: 'dist/stats.html',
-                gzipSize: true,
-                brotliSize: true
+                filename: 'dist/stats.html'
               })
               : undefined
-          ]
+          ],
           /**
-           * TODO: Revisit after the following issues are fixed:
+           * This is the first thing that should be debugged when there are issues
+           * withe the bundle. Check these issues:
            * - https://github.com/vitejs/vite/issues/5142
            * - https://github.com/evanw/esbuild/issues/399
            * - https://github.com/rollup/rollup/issues/3888
            */
-          /*
-           * manualChunks(id) {
-           *   if (
-           *     id.includes('virtual:locales') ||
-           *     id.includes('@intlify/unplugin-vue-i18n/messages')
-           *   ) {
-           *     return 'localization';
-           *   }
-           * }
-           */
+          manualChunks(id) {
+            if (
+              id.includes('virtual:locales') ||
+              id.includes('@intlify/unplugin-vue-i18n/messages')
+            ) {
+              return 'locales';
+            }
+          }
         }
       }
     },

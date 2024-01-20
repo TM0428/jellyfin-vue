@@ -213,13 +213,10 @@
 </template>
 
 <script setup lang="ts">
-import { useDateFns } from '@/composables/use-datefns';
-import { useSnackbar } from '@/composables/use-snackbar';
-import { remote } from '@/plugins/remote';
 import {
+  ImageType,
   type BaseItemDto,
-  type BaseItemPerson,
-  ImageType
+  type BaseItemPerson
 } from '@jellyfin/sdk/lib/generated-client';
 import { getGenresApi } from '@jellyfin/sdk/lib/utils/api/genres-api';
 import { getItemUpdateApi } from '@jellyfin/sdk/lib/utils/api/item-update-api';
@@ -230,6 +227,10 @@ import { format, formatISO } from 'date-fns';
 import { pick, set } from 'lodash-es';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { isArray } from '@/utils/validation';
+import { remote } from '@/plugins/remote';
+import { useSnackbar } from '@/composables/use-snackbar';
+import { useDateFns } from '@/composables/use-datefns';
 
 type ContentOption = {
   value: string;
@@ -260,7 +261,7 @@ const genresModel = computed({
     return metadata.value?.Genres === null ? undefined : metadata.value?.Genres;
   },
   set(newVal) {
-    if (Array.isArray(newVal) && metadata.value) {
+    if (isArray(newVal) && metadata.value) {
       metadata.value.Genres = newVal;
     }
   }
@@ -270,7 +271,7 @@ const tagsModel = computed({
     return metadata.value?.Tags === null ? undefined : metadata.value?.Tags;
   },
   set(newVal) {
-    if (Array.isArray(newVal) && metadata.value) {
+    if (isArray(newVal) && metadata.value) {
       metadata.value.Tags = newVal;
     }
   }

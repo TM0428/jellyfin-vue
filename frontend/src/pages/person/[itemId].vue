@@ -157,7 +157,7 @@
     </template>
     <template #right>
       <RelatedItems
-        :item="item"
+        :related-items="relatedItems"
         vertical>
         {{ $t('moreLikeArtist', { artist: item.Name }) }}
       </RelatedItems>
@@ -166,31 +166,62 @@
 </template>
 
 <script setup lang="ts">
-import { useDateFns } from '@/composables/use-datefns';
-import { remote } from '@/plugins/remote';
-import { sanitizeHtml } from '@/utils/html';
-import { getBlurhash } from '@/utils/images';
 import {
-  type BaseItemDto,
   BaseItemKind,
   ImageType,
-  ItemFields,
   SortOrder
 } from '@jellyfin/sdk/lib/generated-client';
 import { getItemsApi } from '@jellyfin/sdk/lib/utils/api/items-api';
+import { getLibraryApi } from '@jellyfin/sdk/lib/utils/api/library-api';
 import { getUserLibraryApi } from '@jellyfin/sdk/lib/utils/api/user-library-api';
 import { format } from 'date-fns';
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router/auto';
+import { defaultSortOrder as sortBy } from '@/utils/items';
+import { getBlurhash } from '@/utils/images';
+import { sanitizeHtml } from '@/utils/html';
+import { useDateFns } from '@/composables/use-datefns';
+import { useBaseItem } from '@/composables/apis';
 
 const route = useRoute<'/person/[itemId]'>();
 
-const item = ref<BaseItemDto>({});
-const movies = ref<BaseItemDto[]>([]);
-const series = ref<BaseItemDto[]>([]);
-const books = ref<BaseItemDto[]>([]);
-const photos = ref<BaseItemDto[]>([]);
 const activeTab = ref(4);
+
+const { data: item } = await useBaseItem(getUserLibraryApi, 'getItem')(() => ({
+  itemId: route.params.itemId
+}));
+const { data: relatedItems } = await useBaseItem(getLibraryApi, 'getSimilarItems')(() => ({
+  itemId: route.params.itemId,
+  limit: 5
+}));
+const { data: movies } = await useBaseItem(getItemsApi, 'getItems')(() => ({
+  personIds: [route.params.itemId],
+  sortBy,
+  sortOrder: [SortOrder.Descending],
+  recursive: true,
+  includeItemTypes: [BaseItemKind.Movie]
+}));
+const { data: series } = await useBaseItem(getItemsApi, 'getItems')(() => ({
+  personIds: [route.params.itemId],
+  sortBy,
+  sortOrder: [SortOrder.Descending],
+  recursive: true,
+  includeItemTypes: [BaseItemKind.Series]
+}));
+const { data: books } = await useBaseItem(getItemsApi, 'getItems')(() => ({
+  personIds: [route.params.itemId],
+  sortBy,
+  sortOrder: [SortOrder.Descending],
+  recursive: true,
+  includeItemTypes: [BaseItemKind.Book]
+}));
+const { data: photos } = await useBaseItem(getItemsApi, 'getItems')(() => ({
+  personIds: [route.params.itemId],
+  sortBy,
+  sortOrder: [SortOrder.Descending],
+  recursive: true,
+  includeItemTypes: [BaseItemKind.Photo]
+}));
 
 const birthDate = computed(() =>
   item.value.PremiereDate
@@ -208,82 +239,21 @@ const birthPlace = computed(
   () => item.value.ProductionLocations?.[0] ?? undefined
 );
 
-onMounted(async () => {
-  const { itemId } = route.params;
+route.meta.title = item.value.Name;
+route.meta.backdrop.blurhash = getBlurhash(item.value, ImageType.Backdrop);
 
-  item.value = (
-    await remote.sdk.newUserApi(getUserLibraryApi).getItem({
-      userId: remote.auth.currentUserId ?? '',
-      itemId
-    })
-  ).data;
-
-  route.meta.title = item.value.Name;
-  route.meta.backdrop.blurhash = getBlurhash(item.value, ImageType.Backdrop);
-
-  movies.value =
-    (
-      await remote.sdk.newUserApi(getItemsApi).getItems({
-        personIds: [itemId],
-        sortBy: ['PremiereDate', 'ProductionYear', 'SortName'],
-        sortOrder: [SortOrder.Descending],
-        recursive: true,
-        includeItemTypes: [BaseItemKind.Movie],
-        fields: Object.values(ItemFields),
-        userId: remote.auth.currentUserId
-      })
-    ).data.Items ?? [];
-
-  series.value =
-    (
-      await remote.sdk.newUserApi(getItemsApi).getItems({
-        personIds: [itemId],
-        sortBy: ['PremiereDate', 'ProductionYear', 'SortName'],
-        sortOrder: [SortOrder.Descending],
-        recursive: true,
-        includeItemTypes: [BaseItemKind.Series],
-        fields: Object.values(ItemFields),
-        userId: remote.auth.currentUserId
-      })
-    ).data.Items ?? [];
-
-  books.value =
-    (
-      await remote.sdk.newUserApi(getItemsApi).getItems({
-        personIds: [itemId],
-        sortBy: ['PremiereDate', 'ProductionYear', 'SortName'],
-        sortOrder: [SortOrder.Descending],
-        recursive: true,
-        includeItemTypes: [BaseItemKind.Book],
-        fields: Object.values(ItemFields),
-        userId: remote.auth.currentUserId
-      })
-    ).data.Items ?? [];
-
-  photos.value =
-    (
-      await remote.sdk.newUserApi(getItemsApi).getItems({
-        personIds: [itemId],
-        sortBy: ['PremiereDate', 'ProductionYear', 'SortName'],
-        sortOrder: [SortOrder.Descending],
-        recursive: true,
-        includeItemTypes: [BaseItemKind.Photo],
-        fields: Object.values(ItemFields),
-        userId: remote.auth.currentUserId
-      })
-    ).data.Items ?? [];
-
-  // Used to pick the first tab with content to display
-  if (movies.value.length > 0) {
-    activeTab.value = 0;
-  } else if (series.value.length > 0) {
-    activeTab.value = 1;
-  } else if (books.value.length > 0) {
-    activeTab.value = 2;
-  } else if (photos.value.length > 0) {
-    activeTab.value = 3;
-  } else {
-    activeTab.value = 4;
-  }
-});
+/**
+ * Pick the most relevant tab to display at mount
+ */
+if (movies.value.length > 0) {
+  activeTab.value = 0;
+} else if (series.value.length > 0) {
+  activeTab.value = 1;
+} else if (books.value.length > 0) {
+  activeTab.value = 2;
+} else if (photos.value.length > 0) {
+  activeTab.value = 3;
+} else {
+  activeTab.value = 4;
+}
 </script>

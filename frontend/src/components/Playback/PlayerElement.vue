@@ -9,7 +9,7 @@
         ref="mediaElementRef"
         :poster="String(posterUrl)"
         autoplay
-        crossorigin="anonymous"
+        crossorigin
         playsinline
         :loop="playbackManager.isRepeatingOnce"
         :class="{ stretched: playerElement.isStretched }"
@@ -27,6 +27,10 @@
 </template>
 
 <script setup lang="ts">
+import Hls, { ErrorTypes, Events, type ErrorData } from 'hls.js';
+import HlsWorkerUrl from 'hls.js/dist/hls.worker.js?url';
+import { computed, nextTick, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useSnackbar } from '@/composables/use-snackbar';
 import {
   mediaElementRef,
@@ -35,16 +39,14 @@ import {
 import { playbackManager } from '@/store/playbackManager';
 import { playerElement } from '@/store/playerElement';
 import { getImageInfo } from '@/utils/images';
-import Hls, { type ErrorData } from 'hls.js';
-import { isNil } from 'lodash-es';
-import { computed, nextTick, watch } from 'vue';
-import { useI18n } from 'vue-i18n';
+import { isNil } from '@/utils/validation';
 
 const { t } = useI18n();
 
 const hls = Hls.isSupported()
   ? new Hls({
-    testBandwidth: false
+    testBandwidth: false,
+    workerPath: HlsWorkerUrl
   })
   : undefined;
 
@@ -54,7 +56,7 @@ const hls = Hls.isSupported()
 function detachHls(): void {
   if (hls) {
     hls.detachMedia();
-    hls.off(Hls.Events.ERROR, onHlsEror);
+    hls.off(Events.ERROR, onHlsEror);
   }
 }
 
@@ -125,14 +127,14 @@ async function onLoadedData(): Promise<void> {
 function onHlsEror(_event: typeof Hls.Events.ERROR, data: ErrorData): void {
   if (data.fatal && hls) {
     switch (data.type) {
-      case Hls.ErrorTypes.NETWORK_ERROR: {
+      case ErrorTypes.NETWORK_ERROR: {
         // Try to recover network error
         useSnackbar(t('networkError'), 'error');
         console.error('fatal network error encountered, try to recover');
         hls.startLoad();
         break;
       }
-      case Hls.ErrorTypes.MEDIA_ERROR: {
+      case ErrorTypes.MEDIA_ERROR: {
         useSnackbar(t('mediaError'), 'error');
         console.error('fatal media error encountered, try to recover');
         hls.recoverMediaError();
@@ -171,7 +173,7 @@ watch(mediaElementRef, async () => {
   if (mediaElementRef.value) {
     if (mediaElementType.value === 'video' && hls) {
       hls.attachMedia(mediaElementRef.value);
-      hls.on(Hls.Events.ERROR, onHlsEror);
+      hls.on(Events.ERROR, onHlsEror);
     }
 
     await mediaWebAudio.context.resume();

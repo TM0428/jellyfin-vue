@@ -46,21 +46,18 @@
  * - Type support for the data that must be passed to the virtualized component's instances
  * - Improved documentation and comments
  */
-import { vuetify } from '@/plugins/vuetify';
 import {
-  type Fn,
   refDebounced,
   useEventListener,
-  useResizeObserver
+  useResizeObserver,
+  type Fn
 } from '@vueuse/core';
-import { isNil } from 'lodash-es';
 import {
-  type StyleValue,
   computed,
   onBeforeUnmount,
-  ref,
   shallowRef,
-  watch
+  watch,
+  type StyleValue
 } from 'vue';
 import {
   fromScrollParent,
@@ -69,6 +66,8 @@ import {
   getResizeMeasurement,
   getVisibleItems
 } from './pipeline';
+import { isNil } from '@/utils/validation';
+import { vuetify } from '@/plugins/vuetify';
 
 /**
  * SHARED STATE ACROSS ALL THE COMPONENT INSTANCES
@@ -102,7 +101,7 @@ const probeRef = shallowRef<HTMLElement>();
 /**
  * == STATE REFS ==
  */
-const itemRect = ref<DOMRectReadOnly>();
+const itemRect = shallowRef<DOMRectReadOnly>();
 const scrollEvents = shallowRef(0);
 const eventCleanups: Fn[] = [];
 
